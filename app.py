@@ -167,10 +167,16 @@ if page == "Lead Discovery":
                             update_logs(f"Skipping {name}: No valid email found on site.")
                     
                     variant_idx += 1
+                    if variant_idx >= len(search_variants) and len(final_leads) < target_valid:
+                        update_logs("All search variants exhausted. Closing search.")
+                        break
+                        
                     if len(final_leads) < target_valid:
                         update_logs(f"Quota not met ({len(final_leads)}/{target_valid}). Trying another search variant...")
+                        time.sleep(2) # Avoid aggressive retries
 
                 update_logs("Discovery process finalized.")
+                time.sleep(1) # Small pause for UI stability
 
                 if final_leads:
                     filepath = save_to_new_csv(final_leads)

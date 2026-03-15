@@ -45,20 +45,20 @@ def scrape_google_maps(industry, location, max_results=50, update_func=None):
             page = context.new_page()
             
             log_update(f"Navigating to Google Maps for '{query}'...")
-            page.goto(search_url, timeout=60000, wait_until="networkidle")
+            # Use 'domcontentloaded' because 'networkidle' is too slow for Maps
+            page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
             
-            # Wait for the sidebar to load
+            # Wait for any of these indicators that results have loaded
+            log_update("Waiting for results to settle...")
             try:
-                # Primary selector for the results list sidebar
-                page.wait_for_selector('div[role="feed"]', timeout=20000)
-                log_update("Search results detected. Starting data extraction...")
+                # div[role='feed'] is the main results container
+                # div[role='article'] are individual business listings
+                page.wait_for_selector("div[role='feed'], div[role='article'], .fontHeadlineSmall", timeout=30000)
+                log_update("Search results detected.")
+                # Give it a small extra moment to render tiles
+                page.wait_for_timeout(2000)
             except:
-                # Fallback selector
-                try:
-                    page.wait_for_selector('role=main', timeout=5000)
-                    log_update("Results loaded (secondary view).")
-                except:
-                    log_update("Warning: Could not confirm results sidebar. Data might be missing.")
+                log_update("Warning: Page took too long to show results. Proceeding with caution.")
 
         processed_names = set()
         scroll_attempts = 0
