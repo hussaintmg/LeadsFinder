@@ -1,0 +1,7 @@
+streamlit
+pandas
+playwright
+beautifulsoup4
+requests
+g4f[all]
+python-dotenv

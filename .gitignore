@@ -1,0 +1,5 @@
+.env
+.env.example
+agent.log
+leads.csv
+venv
