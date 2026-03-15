@@ -21,25 +21,43 @@ def scrape_google_maps(industry, location, max_results=50, update_func=None):
             update_func(msg)
         logger.info(msg)
 
-    with sync_playwright() as p:
-        log_update("Initializing Playwright...")
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
-        page = context.new_page()
-        
-        log_update(f"Navigating to Google Maps for '{query}'...")
-        page.goto(search_url, timeout=60000)
-        
-        # Wait for the sidebar to load
-        try:
-            page.wait_for_selector('role=main', timeout=15000)
-            log_update("Search results loaded. Starting data collection...")
-        except:
-            log_update("Error: Could not find results sidebar. Maps might be blocking.")
-            browser.close()
-            return []
+    try:
+        with sync_playwright() as p:
+            log_update("Initializing Playwright...")
+            try:
+                # Use --no-sandbox and other flags for Cloud/Linux compatibility
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+                )
+            except Exception as e:
+                if "executable" in str(e).lower() or "not found" in str(e).lower():
+                    log_update("Browsers not found. Attempting to install...")
+                    import os
+                    os.system("playwright install chromium")
+                    browser = p.chromium.launch(
+                        headless=True,
+                        args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+                    )
+                else:
+                    raise e
+
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+            
+            log_update(f"Navigating to Google Maps for '{query}'...")
+            page.goto(search_url, timeout=60000)
+            
+            # Wait for the sidebar to load
+            try:
+                page.wait_for_selector('role=main', timeout=20000)
+                log_update("Search results loaded. Starting data collection...")
+            except:
+                log_update("Error: Could not find results sidebar. Maps might be blocking or query is invalid.")
+                browser.close()
+                return []
 
         processed_names = set()
         scroll_attempts = 0
@@ -115,4 +133,8 @@ def scrape_google_maps(industry, location, max_results=50, update_func=None):
         log_update(f"Collection complete. Found {len(results)} raw leads.")
         browser.close()
         
+    except Exception as e:
+        log_update(f"Critical Scraper Error: {str(e)}")
+        return []
+
     return results
