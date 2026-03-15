@@ -15,6 +15,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# --- Playwright Cloud Setup ---
+def install_playwright_browsers():
+    try:
+        import subprocess
+        import sys
+        # Check if chromium is installed
+        result = subprocess.run([sys.executable, "-m", "playwright", "inspect"], capture_output=True, text=True)
+        # If it fails or executable is missing, install it
+        # We also check for 'chromium' in the env to be sure
+        log_dir = os.path.expanduser("~/.cache/ms-playwright")
+        if not os.path.exists(log_dir) or "chromium" not in str(result.stderr).lower():
+            st.info("Preparing environment (First time setup)...")
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+            st.success("Environment Ready!")
+    except Exception as e:
+        st.warning(f"Note: Playwright auto-install attempt failed: {e}. If search crashes, run 'playwright install' manually.")
+
 # Windows Policy Fix for Playwright
 if sys.platform == 'win32':
     try:
@@ -23,6 +40,9 @@ if sys.platform == 'win32':
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     except Exception:
         pass
+else:
+    # On Linux/Cloud, try to install browsers at startup
+    install_playwright_browsers()
 
 # --- Page Config ---
 st.set_page_config(page_title="LeadFlow AI Pro V3", layout="wide", page_icon="🚀")

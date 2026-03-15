@@ -24,40 +24,41 @@ def scrape_google_maps(industry, location, max_results=50, update_func=None):
     try:
         with sync_playwright() as p:
             log_update("Initializing Playwright...")
-            try:
-                # Use --no-sandbox and other flags for Cloud/Linux compatibility
-                browser = p.chromium.launch(
-                    headless=True,
-                    args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-                )
-            except Exception as e:
-                if "executable" in str(e).lower() or "not found" in str(e).lower():
-                    log_update("Browsers not found. Attempting to install...")
-                    import os
-                    os.system("playwright install chromium")
-                    browser = p.chromium.launch(
-                        headless=True,
-                        args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-                    )
-                else:
-                    raise e
+            
+            # Browser launch with flags for Cloud/Linux stability
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox", 
+                    "--disable-setuid-sandbox", 
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--no-first-run",
+                    "--no-zygote"
+                ]
+            )
 
             context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                viewport={'width': 1280, 'height': 800}
             )
             page = context.new_page()
             
             log_update(f"Navigating to Google Maps for '{query}'...")
-            page.goto(search_url, timeout=60000)
+            page.goto(search_url, timeout=60000, wait_until="networkidle")
             
             # Wait for the sidebar to load
             try:
-                page.wait_for_selector('role=main', timeout=20000)
-                log_update("Search results loaded. Starting data collection...")
+                # Primary selector for the results list sidebar
+                page.wait_for_selector('div[role="feed"]', timeout=20000)
+                log_update("Search results detected. Starting data extraction...")
             except:
-                log_update("Error: Could not find results sidebar. Maps might be blocking or query is invalid.")
-                browser.close()
-                return []
+                # Fallback selector
+                try:
+                    page.wait_for_selector('role=main', timeout=5000)
+                    log_update("Results loaded (secondary view).")
+                except:
+                    log_update("Warning: Could not confirm results sidebar. Data might be missing.")
 
         processed_names = set()
         scroll_attempts = 0
